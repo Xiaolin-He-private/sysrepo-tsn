@@ -122,7 +122,7 @@ module ieee802-dot1q-cb-stream-identification {
           }
           container parameters {
             container null-stream-identification-params {
-              when "../identification-type = 'null'" {
+              when "../../../identification-type = 'null'" {
                 description
                   "Applies to the Null Stream identification";
               }
@@ -168,7 +168,7 @@ module ieee802-dot1q-cb-stream-identification {
               }
             }
             container source-mac-and-vlan-identification-params {
-              when "../identification-type = 'source-mac-and-vlan'" {
+              when "../../identification-type = 'source-mac-and-vlan'" {
                 description
                   "Applies to the Source MAC and VLAN Stream identification";
               }
@@ -215,7 +215,7 @@ module ieee802-dot1q-cb-stream-identification {
               }
             }
             container dest-mac-and-vlan-identification-params {
-              when "../identification-type = 'dest-mac-and-vlan'" {
+              when "../../identification-type = 'dest-mac-and-vlan'" {
                 description
                   "Applies to the destination MAC and VLAN Stream identification";
               }
@@ -298,7 +298,7 @@ module ieee802-dot1q-cb-stream-identification {
               }
             }
             container ip-octuple-stream-identification-params {
-              when "../identification-type = 'ip-octuple'" {
+              when "../../identification-type = 'ip-octuple'" {
                 description
                   "Applies to the IP octuple Stream identification";
               }

@@ -129,7 +129,6 @@ int config_qbu_per_port(sr_session_ctx_t *session, const char *path, bool abort,
 	if (!para)
 		return rc;
 
-	/* if it is called by abort event, we should use new value */
 	if (abort) {
 		rc = sr_get_changes_iter(session, path, &it);
 		if (rc != SR_ERR_OK) {
@@ -166,7 +165,7 @@ int config_qbu_per_port(sr_session_ctx_t *session, const char *path, bool abort,
 			 strerror(-rc));
 		sr_set_error(session, err_msg, xpath);
 
-		printf("set qbu error, %s!", strerror(-rc));
+		printf("set qbu error, %s!\n", strerror(-rc));
 		rc = errno2sp(-rc);
 		goto cleanup;
 	}
@@ -198,7 +197,7 @@ int qbu_config(sr_session_ctx_t *session, const char *path, bool abort)
 			 path);
 		sr_set_error(session, err_msg, path);
 
-		printf("ERROR: %s sr_get_changes_iter: %s", __func__,
+		printf("ERROR: %s sr_get_changes_iter: %s\n", __func__,
 		       sr_strerror(rc));
 		goto cleanup;
 	}

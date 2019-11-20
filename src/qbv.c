@@ -93,7 +93,7 @@ int tsn_config_qbv(sr_session_ctx_t *session, char *ifname,
 			 strerror(-rc));
 		sr_set_error(session, err_msg, xpath);
 
-		printf("ERROR: set qbv error, %s!", strerror(-rc));
+		printf("ERROR: set qbv error, %s!\n", strerror(-rc));
 		rc = errno2sp(-rc);
 		goto out;
 	}
@@ -274,7 +274,7 @@ int config_qbv_per_port(sr_session_ctx_t *session, const char *path, bool abort,
 	size_t count;
 	size_t i;
 	struct sr_qbv_conf qbvconf;
-	int para;
+	int para = 0;
 	char err_msg[MSG_MAX_LEN] = {0};
 
 	qbvconf.qbvconf_ptr = malloc_qbv_memory();
@@ -290,14 +290,14 @@ int config_qbv_per_port(sr_session_ctx_t *session, const char *path, bool abort,
 				 "Get items from %s failed", path);
 			sr_set_error(session, err_msg, path);
 
-			printf("ERROR: %s sr_get_items: %s", __func__,
+			printf("ERROR: %s sr_get_items: %s\n", __func__,
 			       sr_strerror(rc));
 		}
 		return rc;
 	}
 
 	init_tsn_socket();
-	for (i = 0, para = 0; i < count; i++) {
+	for (i = 0; i < count; i++) {
 		if (values[i].type == SR_LIST_T
 		    || values[i].type == SR_CONTAINER_PRESENCE_T)
 			continue;
@@ -308,7 +308,6 @@ int config_qbv_per_port(sr_session_ctx_t *session, const char *path, bool abort,
 	if (!para)
 		goto cleanup;
 
-	/* if it is called by abort event, we should use new value */
 	if (abort) {
 		rc = sr_get_changes_iter(session, path, &it);
 		if (rc != SR_ERR_OK) {
@@ -365,7 +364,7 @@ int qbv_config(sr_session_ctx_t *session, const char *path, bool abort)
 			 "Get changes from %s failed", path);
 		sr_set_error(session, err_msg, path);
 
-		printf("ERROR: %s sr_get_changes_iter: %s", __func__,
+		printf("ERROR: %s sr_get_changes_iter: %s\n", __func__,
 		       sr_strerror(rc));
 		goto cleanup;
 	}
