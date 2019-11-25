@@ -44,6 +44,7 @@ set(SOURCES
 		src/qbu.c
 		src/cb_streamid.c
 		src/qci_sf.c
+		src/qci_sg.c
 		src/file_mon.c)
 
 find_package(PkgConfig)
