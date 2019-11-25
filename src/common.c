@@ -292,3 +292,30 @@ convert:
 err:
 	return SR_ERR_INVAL_ARG;
 }
+
+void pri2num(char *pri_str, int8_t *pri_num)
+{
+	if (!pri_str || !pri_num)
+		return;
+
+	if (!strcmp(pri_str, "zero"))
+		*pri_num = 0;
+	else if (!strcmp(pri_str, "one"))
+		*pri_num = 1;
+	else if (!strcmp(pri_str, "two"))
+		*pri_num = 2;
+	else if (!strcmp(pri_str, "three"))
+		*pri_num = 3;
+	else if (!strcmp(pri_str, "four"))
+		*pri_num = 4;
+	else if (!strcmp(pri_str, "five"))
+		*pri_num = 5;
+	else if (!strcmp(pri_str, "six"))
+		*pri_num = 6;
+	else if (!strcmp(pri_str, "seven"))
+		*pri_num = 7;
+	else if (!strcmp(pri_str, "wildcard"))
+		*pri_num = -1;
+	else
+		*pri_num = -1;
+}
