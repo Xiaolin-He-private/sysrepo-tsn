@@ -85,7 +85,8 @@ void clr_qci_sf(sr_session_ctx_t *session, sr_val_t *value,
 	if (!nodename)
 		return;
 
-	if (!strcmp(nodename, "stream-filter-enabled")) {
+	if (!strcmp(nodename,
+		    "ieee802-dot1q-qci-augment:stream-filter-enabled")) {
 		sfi->enable = false;
 	} else if (!strcmp(nodename, "stream-filter-instance-id")) {
 		sfi->sf_id = 0;
@@ -123,17 +124,20 @@ int parse_qci_sf(sr_session_ctx_t *session, sr_val_t *value,
 		goto out;
 
 	printf("%s was called\n", __func__);
-	if (!strcmp(nodename, "stream-filter-enabled")) {
+	if (!strcmp(nodename,
+		    "ieee802-dot1q-qci-augment:stream-filter-enabled")) {
 		sfi->enable = value->data.bool_val;
 	} else if (!strcmp(nodename, "stream-filter-instance-id")) {
 		sfi->sf_id = value->data.uint32_val;
 		printf("sf id is: %u\n", sfi->sf_id);
 	} else if (!strcmp(nodename, "wildcard")) {
 		sfi->sfconf.stream_handle_spec = -1;
-		printf("sf id is: %d\n", sfi->sf_id);
+		printf("sf stream-handle-spec is: %d\n",
+		       sfi->sfconf.stream_handle_spec);
 	} else if (!strcmp(nodename, "stream-handle")) {
 		sfi->sfconf.stream_handle_spec = value->data.int32_val;
-		printf("sf id is: %d\n", sfi->sf_id);
+		printf("sf stream-handle-spec is: %d\n",
+		       sfi->sfconf.stream_handle_spec);
 	} else if (!strcmp(nodename, "priority-spec")) {
 		pri2num(value->data.enum_val, &sfi->sfconf.priority_spec);
 		printf("sf pri-spec is: %d\n", sfi->sfconf.priority_spec);
@@ -192,7 +196,6 @@ int config_sf_per_port(sr_session_ctx_t *session, const char *path, bool abort,
 	size_t count;
 	size_t i;
 	size_t j;
-	int para = 0;
 	char err_msg[MSG_MAX_LEN] = {0};
 	struct std_sf_table *sf_table = NULL;
 	struct std_sf_table *pre_table = NULL;
@@ -240,12 +243,12 @@ int config_sf_per_port(sr_session_ctx_t *session, const char *path, bool abort,
 			if (!sf_id)
 				goto cleanup;
 			cur_table->sf_ptr->sf_id = strtoul(sf_id, NULL, 0);
-			if (table_cnt == 1) {
+			if (!sf_table) {
 				sf_table = cur_table;
-				pre_table = cur_table;
 			} else {
 				pre_table->next = cur_table;
 			}
+			pre_table = cur_table;
 		}
 	}
 
@@ -258,10 +261,10 @@ int config_sf_per_port(sr_session_ctx_t *session, const char *path, bool abort,
 	cur_table = sf_table;
 	for (i = 0; i < table_cnt; i++) {
 		if (!cur_table) {
-			printf("current table in null\n");
+			printf("current table is null\n");
 			goto cleanup;
 		} else {
-			printf("current table in ok\n");
+			printf("current table is ok\n");
 		}
 		snprintf(xpath, XPATH_MAX_LEN,
 			 "%s[name='%s']%s[stream-filter-instance-id='%u']//*",
@@ -286,11 +289,15 @@ int config_sf_per_port(sr_session_ctx_t *session, const char *path, bool abort,
 			    || values[j].type == SR_CONTAINER_PRESENCE_T)
 				continue;
 
-			if (!parse_qci_sf(session, &values[j],
-					       cur_table->sf_ptr))
-				para++;
+			rc = parse_qci_sf(session, &values[j],
+					       cur_table->sf_ptr);
+			if (rc != SR_ERR_OK) {
+				cur_table->apply_st = APPLY_PARSE_ERR;
+				goto cleanup;
+			}
 		}
 		printf("parse configuration ok\n");
+		cur_table->apply_st = APPLY_PARSE_SUC;
 		if (abort) {
 			rc = sr_get_changes_iter(session, path, &it);
 			if (rc != SR_ERR_OK) {
@@ -321,8 +328,6 @@ int config_sf_per_port(sr_session_ctx_t *session, const char *path, bool abort,
 		}
 		cur_table = cur_table->next;
 	}
-	if (!para)
-		goto cleanup;
 
 	init_tsn_socket();
 	cur_table = sf_table;
@@ -336,7 +341,10 @@ int config_sf_per_port(sr_session_ctx_t *session, const char *path, bool abort,
 			sprintf(err_msg,
 				"failed to set stream filter, %s!",
 				strerror(-rc));
+			cur_table->apply_st = APPLY_SET_ERR;
 			goto cleanup;
+		} else {
+			cur_table->apply_st = APPLY_SET_SUC;
 		}
 		if (cur_table->next == NULL)
 			break;
@@ -388,11 +396,10 @@ int qci_sf_config(sr_session_ctx_t *session, const char *path, bool abort)
 
 		if (strcmp(cpname, cpname_bak)) {
 			snprintf(cpname_bak, IF_NAME_MAX_LEN, cpname);
-			snprintf(xpath, XPATH_MAX_LEN, "%s[name='%s']%s://*",
+			snprintf(xpath, XPATH_MAX_LEN, "%s[name='%s']%s//*",
 				 BRIDGE_COMPONENT_XPATH, cpname,
 				 QCISF_XPATH);
-			rc = config_sf_per_port(session, xpath, abort,
-						      cpname);
+			rc = config_sf_per_port(session, xpath, abort, cpname);
 			if (rc != SR_ERR_OK)
 				break;
 		}

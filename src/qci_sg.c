@@ -63,6 +63,38 @@ struct std_sg_table *new_sg_table(void)
 	return sg_table_ptr;
 }
 
+void free_sg_list_node(struct std_sg_table *node)
+{
+	if (!node)
+		return;
+
+	printf("%p is freed\n", (void *)node);
+	printf("%p is freed\n", (void *)node->sg_ptr);
+	printf("%p is freed",
+	       (void *)node->sg_ptr->sgconf.admin.gcl);
+	if (node->sg_ptr) {
+		if (node->sg_ptr->sgconf.admin.gcl)
+			free(node->sg_ptr->sgconf.admin.gcl);
+		free(node->sg_ptr);
+	}
+
+	free(node);
+}
+
+void free_sg_list(struct std_sg_table *l_head)
+{
+	if (!l_head)
+		return;
+
+	if(l_head->next)
+		free_sg_list(l_head->next);
+
+	if (l_head->pre)
+		l_head->pre->next = NULL;
+
+	free_sg_list_node(l_head);
+}
+
 void free_sg_table(struct std_sg_table *sg_table)
 {
 	struct std_sg_table *tmp_table = sg_table;
@@ -82,6 +114,54 @@ void free_sg_table(struct std_sg_table *sg_table)
 		free(tmp_table);
 		tmp_table = next_table;
 	}
+}
+
+void append_table2list(struct std_sg_table *list,
+		struct std_sg_table *table)
+{
+	struct std_sg_table *cur_node;
+
+	if (!table)
+		return;
+
+	if (!list) {
+		list = table;
+		return;
+	}
+
+	for(cur_node = list->next; cur_node != NULL;) {
+		if (cur_node->next) {
+			cur_node = cur_node->next;
+			continue;
+		} else {
+			cur_node = table;
+			break;
+		}
+	}
+}
+
+struct std_sg_table *find_table_in_list(char *port, struct std_sg_table *l_head)
+{
+	struct std_sg_table *pre_node = NULL;
+	struct std_sg_table *cur_node = l_head;
+	
+	if(!port || !l_head)
+		return NULL;
+
+	for(; cur_node != NULL;) {
+		if (!strncmp(cur_node->port, port, IF_NAME_MAX_LEN)) {
+			if(pre_node)
+				pre_node->next = cur_node->next;
+			free_sg_table(cur_node);
+			break;
+		}
+		pre_node = cur_node;
+		cur_node = cur_node->next;
+	}
+}
+
+void del_table_in_list(char *port, struct std_sg_table *list)
+{
 }
 
 void clr_qci_sg(sr_session_ctx_t *session, sr_val_t *value,
@@ -240,7 +320,7 @@ int parse_qci_sg(sr_session_ctx_t *session, sr_val_t *value,
 			rc = SR_ERR_INVAL_ARG;
 			goto out;
 		}
-		printf("index %llu gate-states is: %d\n", u64_val,
+		printf("index %lu gate-states is: %d\n", u64_val,
 		       (entry + u64_val)->gate_state);
 	} else if (!strcmp(nodename, "ipv-value")) {
 		sr_xpath_recover(&xp_ctx);
@@ -252,7 +332,7 @@ int parse_qci_sg(sr_session_ctx_t *session, sr_val_t *value,
 			goto out;
 
 		pri2num(value->data.enum_val, &(entry + u64_val)->ipv);
-		printf("index %llu ipv is: %d\n", u64_val,
+		printf("index %lu ipv is: %d\n", u64_val,
 		       (entry + u64_val)->ipv);
 	} else if (!strcmp(nodename, "time-interval-value")) {
 		sr_xpath_recover(&xp_ctx);
@@ -264,7 +344,7 @@ int parse_qci_sg(sr_session_ctx_t *session, sr_val_t *value,
 			goto out;
 
 		(entry + u64_val)->time_interval = value->data.uint32_val;
-		printf("index %llu ipv is: %u\n", u64_val,
+		printf("index %lu ipv is: %u\n", u64_val,
 		       (entry + u64_val)->time_interval);
 	} else if (!strcmp(nodename, "interval-octet-max")) {
 		sr_xpath_recover(&xp_ctx);
@@ -276,7 +356,7 @@ int parse_qci_sg(sr_session_ctx_t *session, sr_val_t *value,
 			goto out;
 
 		(entry + u64_val)->octet_max = value->data.uint32_val;
-		printf("index %llu ipv is: %u\n", u64_val,
+		printf("index %lu ipv is: %u\n", u64_val,
 		       (entry + u64_val)->octet_max);
 	} else if (!strcmp(nodename, "numerator")) {
 		sgi->cycletime.numerator = value->data.uint32_val;
@@ -338,7 +418,6 @@ int config_sg_per_port(sr_session_ctx_t *session, const char *path, bool abort,
 	size_t count;
 	size_t i;
 	size_t j;
-	int para = 0;
 	char err_msg[MSG_MAX_LEN] = {0};
 	struct std_sg_table *sg_table = NULL;
 	struct std_sg_table *pre_table = NULL;
@@ -347,6 +426,7 @@ int config_sg_per_port(sr_session_ctx_t *session, const char *path, bool abort,
 	char *sg_id;
 	int table_cnt = 0;
 	char xpath[XPATH_MAX_LEN] = {0,};
+	uint64_t time;
 
 	printf("%s is called\n", __func__);
 
@@ -386,12 +466,12 @@ int config_sg_per_port(sr_session_ctx_t *session, const char *path, bool abort,
 			if (!sg_id)
 				goto cleanup;
 			cur_table->sg_ptr->sg_id = strtoul(sg_id, NULL, 0);
-			if (table_cnt == 1) {
+			if (!sg_table) {
 				sg_table = cur_table;
-				pre_table = cur_table;
 			} else {
 				pre_table->next = cur_table;
 			}
+			pre_table = cur_table;
 		}
 	}
 
@@ -404,10 +484,10 @@ int config_sg_per_port(sr_session_ctx_t *session, const char *path, bool abort,
 	cur_table = sg_table;
 	for (i = 0; i < table_cnt; i++) {
 		if (!cur_table) {
-			printf("current table in null\n");
+			printf("current table is null\n");
 			goto cleanup;
 		} else {
-			printf("current table in ok\n");
+			printf("current table is ok\n");
 		}
 		snprintf(xpath, XPATH_MAX_LEN,
 			 "%s[name='%s']%s[stream-gate-instance-id='%u']//*",
@@ -432,10 +512,14 @@ int config_sg_per_port(sr_session_ctx_t *session, const char *path, bool abort,
 			    || values[j].type == SR_CONTAINER_PRESENCE_T)
 				continue;
 
-			if (!parse_qci_sg(session, &values[j],
-					       cur_table->sg_ptr))
-				para++;
+			rc = parse_qci_sg(session, &values[j],
+					       cur_table->sg_ptr);
+			if (rc != SR_ERR_OK) {
+				cur_table->apply_st = APPLY_PARSE_ERR;
+				goto cleanup;
+			}
 		}
+		cur_table->apply_st = APPLY_PARSE_SUC;
 		printf("parse configuration ok\n");
 		if (abort) {
 			rc = sr_get_changes_iter(session, path, &it);
@@ -467,12 +551,23 @@ int config_sg_per_port(sr_session_ctx_t *session, const char *path, bool abort,
 		}
 		cur_table = cur_table->next;
 	}
-	if (!para)
-		goto cleanup;
 
 	init_tsn_socket();
 	cur_table = sg_table;
 	while (cur_table != NULL) {
+		if (cur_table->sg_ptr->basetime_f) {
+			time = cal_base_time(&cur_table->sg_ptr->basetime);
+			cur_table->sg_ptr->sgconf.admin.base_time = time;
+			printf("sgi base-time is: %llu\n",
+			       cur_table->sg_ptr->sgconf.admin.base_time);
+		}
+		if (cur_table->sg_ptr->cycletime_f) {
+			time = cal_cycle_time(&cur_table->sg_ptr->cycletime);
+			cur_table->sg_ptr->sgconf.admin.cycle_time = time;
+			printf("sgi cycle-time is: %u\n",
+			       cur_table->sg_ptr->sgconf.admin.cycle_time);
+		}
+
 		printf("start set sg via libtsn\n");
 		/* set new stream filters configuration */
 		rc = tsn_qci_psfp_sgi_set(cpname, cur_table->sg_ptr->sg_handle,
@@ -482,7 +577,10 @@ int config_sg_per_port(sr_session_ctx_t *session, const char *path, bool abort,
 			sprintf(err_msg,
 				"failed to set stream filter, %s!",
 				strerror(-rc));
+			cur_table->apply_st = APPLY_SET_ERR;
 			goto cleanup;
+		} else {
+			cur_table->apply_st = APPLY_SET_SUC;
 		}
 		if (cur_table->next == NULL)
 			break;
@@ -534,11 +632,10 @@ int qci_sg_config(sr_session_ctx_t *session, const char *path, bool abort)
 
 		if (strcmp(cpname, cpname_bak)) {
 			snprintf(cpname_bak, IF_NAME_MAX_LEN, cpname);
-			snprintf(xpath, XPATH_MAX_LEN, "%s[name='%s']%s://*",
+			snprintf(xpath, XPATH_MAX_LEN, "%s[name='%s']%s//*",
 				 BRIDGE_COMPONENT_XPATH, cpname,
-				 QCISF_XPATH);
-			rc = config_sg_per_port(session, xpath, abort,
-						      cpname);
+				 QCISG_XPATH);
+			rc = config_sg_per_port(session, xpath, abort, cpname);
 			if (rc != SR_ERR_OK)
 				break;
 		}
@@ -557,7 +654,7 @@ int qci_sg_subtree_change_cb(sr_session_ctx_t *session, const char *path,
 
 	printf("%s was called\n", __func__);
 	snprintf(xpath, XPATH_MAX_LEN, "%s%s//*", BRIDGE_COMPONENT_XPATH,
-		 QCISF_XPATH);
+		 QCISG_XPATH);
 	print_ev_type(event);
 	printf("xpath is :\n%s\n", xpath);
 	switch (event) {

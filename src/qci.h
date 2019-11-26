@@ -40,8 +40,10 @@ struct std_sf {
 };
 
 struct std_sf_table {
+	char port[IF_NAME_MAX_LEN];
 	struct std_sf *sf_ptr;
 	enum apply_status apply_st;
+	struct std_fm_table *pre;
 	struct std_sf_table *next;
 };
 
@@ -57,8 +59,10 @@ struct std_sg {
 };
 
 struct std_sg_table {
+	char port[IF_NAME_MAX_LEN];
 	struct std_sg *sg_ptr;
 	enum apply_status apply_st;
+	struct std_fm_table *pre;
 	struct std_sg_table *next;
 };
 
@@ -69,8 +73,10 @@ struct std_fm {
 };
 
 struct std_fm_table {
+	char port[IF_NAME_MAX_LEN];
 	struct std_fm *fm_ptr;
 	enum apply_status apply_st;
+	struct std_fm_table *pre;
 	struct std_fm_table *next;
 };
 
