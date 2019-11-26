@@ -58,3 +58,4 @@ install_yang_module ieee802-dot1q-stream-filters-gates
 enable_yang_module_feature ieee802-dot1q-stream-filters-gates closed-gate-state
 install_yang_module ieee802-dot1q-psfp
 install_yang_module ieee802-dot1q-cb-stream-identification
+install_yang_module ieee802-dot1q-qci-augment
