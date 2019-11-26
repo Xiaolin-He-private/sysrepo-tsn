@@ -32,6 +32,7 @@
 #include "qbu.h"
 #include "file_mon.h"
 #include "cb_streamid.h"
+#include "qci.h"
 
 static uint8_t exit_application;
 
